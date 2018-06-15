@@ -102,14 +102,16 @@ def menuconfig(args, pkgname):
     # Run make menuconfig
     srcdir = "/home/pmos/build/src"
     logging.info("(native) make " + kopt)
+    builddir = pmb.chroot.user(args, ["sh", "-c", "source APKBUILD; echo $builddir"],
+                               "native", "/home/pmos/build", return_stdout=True).rstrip()
     pmb.chroot.user(args, ["make", kopt], "native",
-                    srcdir + "/build", log=False,
+                    srcdir + builddir, log=False,
                     env={"ARCH": pmb.parse.arch.alpine_to_kernel(arch),
                          "DISPLAY": os.environ.get("DISPLAY"),
                          "XAUTHORITY": "/home/pmos/.Xauthority"})
 
     # Find the updated config
-    source = args.work + "/chroot_native" + srcdir + "/build/.config"
+    source = args.work + "/chroot_native" + srcdir + builddir + "/.config"
     if not os.path.exists(source):
         raise RuntimeError("No kernel config generated: " + source)
 
