@@ -1,11 +1,11 @@
 # Maintainer: He Yangxuan <yangxuan8282@gmail.com>
 
 pkgname=bluetooth-raspberry-pi
-pkgver=2
+pkgver=1
 pkgrel=0
 pkgdesc="Service and udev rule for built-in bluetooth on Raspberry Pi zero w, 3B, 3B plus"
 url="https://github.com/RPi-Distro/bluez-firmware"
-arch="armhf"
+arch="noarch"
 license="MIT"
 depends="bluez bluez-deprecated"
 install="$pkgname.post-install"
