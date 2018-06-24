@@ -24,6 +24,7 @@ import pmb.build.autodetect
 import pmb.build.checksum
 import pmb.chroot
 import pmb.chroot.apk
+import pmb.chroot.other
 import pmb.helpers.run
 import pmb.parse
 
@@ -54,11 +55,43 @@ def get_arch(args, apkbuild):
                        apkbuild["arch"][0] + "' architecture.")
 
 
+def get_outputdir(args, pkgname):
+    """
+    Get the folder for the kernel compilation output.
+    For most APKBUILDs, this is $builddir. But some older ones still use
+    $srcdir/build (see the discussion in #1551).
+    """
+    # Old style ($srcdir/build)
+    ret = "/home/pmos/build/src/build"
+    chroot = args.work + "/chroot_native"
+    if os.path.exists(chroot + ret + "/.config"):
+        logging.warning("*****")
+        logging.warning("NOTE: The code in this linux APKBUILD is pretty old."
+                        " Consider making a backup and migrating to a modern"
+                        " version with: pmbootstrap aportgen " + pkgname)
+        logging.warning("*****")
+
+        return ret
+
+    # New style ($builddir)
+    cmd = "srcdir=/home/pmos/build/src source APKBUILD; echo $builddir"
+    ret = pmb.chroot.user(args, ["sh", "-c", cmd],
+                          "native", "/home/pmos/build",
+                          return_stdout=True).rstrip()
+    if os.path.exists(chroot + ret + "/.config"):
+        return ret
+
+    # Not found
+    raise RuntimeError("Could not find the kernel config. Consider making a"
+                       " backup of your APKBUILD and recreating it from the"
+                       " template with: pmbootstrap aportgen " + pkgname)
+
+
 def menuconfig(args, pkgname):
     # Pkgname: allow omitting "linux-" prefix
     if pkgname.startswith("linux-"):
         pkgname_ = pkgname.split("linux-")[1]
-        logging.info("PROTIP: You can simply do 'pmbootstrap menuconfig " +
+        logging.info("PROTIP: You can simply do 'pmbootstrap kconfig edit " +
                      pkgname_ + "'")
     else:
         pkgname = "linux-" + pkgname
@@ -67,11 +100,28 @@ def menuconfig(args, pkgname):
     aport = pmb.build.find_aport(args, pkgname)
     apkbuild = pmb.parse.apkbuild(args, aport + "/APKBUILD")
     arch = get_arch(args, apkbuild)
+    kopt = "menuconfig"
 
     # Set up build tools and makedepends
     pmb.build.init(args)
-    depends = apkbuild["makedepends"] + ["ncurses-dev"]
+    depends = apkbuild["makedepends"]
+    kopt = "menuconfig"
+    copy_xauth = False
+    if args.xconfig:
+        depends += ["qt-dev", "font-noto"]
+        kopt = "xconfig"
+        copy_xauth = True
+    elif args.gconfig:
+        depends += ["gtk+2.0-dev", "glib-dev", "libglade-dev", "font-noto"]
+        kopt = "gconfig"
+        copy_xauth = True
+    else:
+        depends += ["ncurses-dev"]
     pmb.chroot.apk.install(args, depends)
+
+    # Copy host's .xauthority into native
+    if copy_xauth:
+        pmb.chroot.other.copy_xauthority(args)
 
     # Patch and extract sources
     pmb.build.copy_to_buildpath(args, pkgname)
@@ -82,17 +132,23 @@ def menuconfig(args, pkgname):
                     "/home/pmos/build", output="interactive",
                     env={"CARCH": arch})
 
-    # Run abuild menuconfig
-    logging.info("(native) run menuconfig")
-    pmb.chroot.user(args, ["abuild", "-d", "menuconfig"], "native",
-                    "/home/pmos/build", output="tui", env={"CARCH": arch})
+    # Run make menuconfig
+    outputdir = get_outputdir(args, pkgname)
+    logging.info("(native) make " + kopt)
+    pmb.chroot.user(args, ["make", kopt], "native",
+                    outputdir, output="tui",
+                    env={"ARCH": pmb.parse.arch.alpine_to_kernel(arch),
+                         "DISPLAY": os.environ.get("DISPLAY"),
+                         "XAUTHORITY": "/home/pmos/.Xauthority"})
 
-    # Update config + checksums
-    config = "config-" + apkbuild["_flavor"] + "." + arch
-    logging.info("Copy kernel config back to aport-folder")
-    source = args.work + "/chroot_native/home/pmos/build/" + config
+    # Find the updated config
+    source = args.work + "/chroot_native" + outputdir + "/.config"
     if not os.path.exists(source):
         raise RuntimeError("No kernel config generated: " + source)
+
+    # Update the aport (config and checksum)
+    logging.info("Copy kernel config back to aport-folder")
+    config = "config-" + apkbuild["_flavor"] + "." + arch
     target = aport + "/" + config
     pmb.helpers.run.user(args, ["cp", source, target])
     pmb.build.checksum(args, pkgname)
