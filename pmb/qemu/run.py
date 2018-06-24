@@ -266,7 +266,7 @@ def run(args):
     process = None
     try:
         signal.signal(signal.SIGTERM, sigterm_handler)
-        output = "background" if spice_enabled else "log"
+        output = "background" if spice_enabled else "interactive"
         process = pmb.helpers.run.user(args, qemu, output=output)
         if spice:
             pmb.helpers.run.user(args, spice)
