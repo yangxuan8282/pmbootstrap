@@ -12,7 +12,6 @@ makedepends="devicepkg-dev"
 subpackages="
 	$pkgname-kernel-rpi:kernel_rpi
 	$pkgname-kernel-rpi2:kernel_rpi2
-	$pkgname-nonfree-firmware:nonfree_firmware
 "
 source="deviceinfo config.txt usercfg.txt cmdline.txt 95-vchiq-permissions.rules"
 
