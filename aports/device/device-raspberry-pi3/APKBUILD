@@ -29,7 +29,7 @@ package() {
 }
 
 kernel_rpi() {
-	pkgdesc="Kernel for the Raspberry Pi 3B/3B+"
+	pkgdesc="Kernel for the Raspberry Pi 3B/3B+ (from Alpine, depends on non free firmware!)"
 	depends="$pkgname linux-rpi"
 	install="$subpkgname.post-install"
 	mkdir "$subpkgdir"
