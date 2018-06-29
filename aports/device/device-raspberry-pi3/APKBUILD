@@ -7,7 +7,7 @@ url="https://postmarketos.org"
 license="MIT"
 arch="noarch"
 options="!check"
-depends="postmarketos-base raspberrypi-bootloader mesa-dri-vc4"
+depends="postmarketos-base raspberrypi-bootloader mesa-dri-vc4 bluetooth-raspberry-pi"
 makedepends="devicepkg-dev"
 subpackages="
 	$pkgname-kernel-rpi:kernel_rpi
